@@ -1,0 +1,21 @@
+# ===== RizomUV 程序本体与构建产物（绝不入库）=====
+# 英文原版备份（使用者自备，含商业软件本体）
+rizomuv.exe.bak
+*.exe
+
+# 构建 / 输出目录
+build/
+out/
+
+# ===== 备份 / 配置 / 日志 =====
+*.bak
+*.old
+*.log
+*.tmp
+*.pyc
+__pycache__/
+
+# ===== 操作系统 =====
+Thumbs.db
+desktop.ini
+.DS_Store
