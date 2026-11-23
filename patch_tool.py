@@ -452,56 +452,92 @@ def gui():
     import tkinter as tk
     from tkinter import filedialog, messagebox
 
+    # ---- 配色 ----
+    PRIMARY = '#2563EB'
+    PRIMARY_DK = '#1D4ED8'
+    OK = '#059669'
+    BAD = '#DC2626'
+    TEXT = '#1F2937'
+    MUTED = '#6B7280'
+    CARD = '#F8FAFC'
+    BORDER = '#E2E8F0'
+    FONT = 'Microsoft YaHei UI'
+
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry('680x500')
+    root.geometry('700x560')
     root.resizable(False, False)
+    root.configure(bg='#FFFFFF')
 
     q = queue.Queue()
     running = {'v': False}
-
-    frm = tk.Frame(root, padx=16, pady=12)
-    frm.pack(fill='both', expand=True)
-
-    tk.Label(frm, text=APP_TITLE, font=('Microsoft YaHei UI', 15, 'bold')).pack(anchor='w')
-    tk.Label(frm, text='只汉化界面文字，不改动任何功能。请先关闭 RizomUV。',
-             font=('Microsoft YaHei UI', 10), foreground='#555').pack(anchor='w', pady=(2, 10))
-
-    info = tk.Label(frm, text='正在检测...', font=('Microsoft YaHei UI', 10),
-                    justify='left', anchor='w')
-    info.pack(fill='x')
-
     manual = {'p': None}
+    state = {'dot': None}
 
-    def refresh_info():
-        """统一刷新检测信息（原版 + 安装目录）。"""
-        p = manual['p'] or find_original()
-        lines = []
+    # ---- 顶部标题条 ----
+    header = tk.Frame(root, bg=PRIMARY, height=78)
+    header.pack(fill='x')
+    header.pack_propagate(False)
+    tk.Label(header, text='  RizomUV 2027  简体中文汉化', font=(FONT, 16, 'bold'),
+             bg=PRIMARY, fg='white').pack(anchor='w', pady=(12, 0))
+    tk.Label(header, text='  只汉化界面文字，不改动任何功能', font=(FONT, 10),
+             bg=PRIMARY, fg='#DBEAFE').pack(anchor='w', pady=(2, 0))
+
+    body = tk.Frame(root, bg='#FFFFFF', padx=20, pady=14)
+    body.pack(fill='both', expand=True)
+
+    # ---- 状态卡片 ----
+    def card(parent):
+        f = tk.Frame(parent, bg=CARD, highlightbackground=BORDER,
+                     highlightthickness=1, padx=12, pady=9)
+        f.pack(fill='x', pady=(0, 8))
+        dot = tk.Label(f, text='●', font=(FONT, 13), bg=CARD, fg=MUTED)
+        dot.pack(side='left', padx=(0, 8))
+        lbl = tk.Label(f, text='检测中…', font=(FONT, 10), bg=CARD, fg=TEXT,
+                       justify='left', anchor='w', wraplength=610)
+        lbl.pack(side='left', fill='x')
+        return dot, lbl
+
+    dot_p, lbl_p = card(body)
+    dot_d, lbl_d = card(body)
+
+    def set_cards(p, dirs, target):
         if p:
-            lines.append('✓ 英文原版：%s' % p)
+            lbl_p.configure(text='英文原版：%s' % p, fg=TEXT)
+            dot_p.configure(fg=OK)
         else:
             cands = original_candidates()
-            lines.append('✗ 未自动找到英文原版（需要 2027.0.598），请点“选择原版文件”。')
+            tip = '英文原版：未找到（需 2027.0.598）'
             if cands:
-                lines.append('  检测到这些文件但版本不符：' + '、'.join(str(c) for c in cands[:3]))
+                tip += ' · 检测到但版本不符：' + '、'.join(c.name for c in cands[:3])
+            lbl_p.configure(text=tip, fg=BAD)
+            dot_p.configure(fg=BAD)
+        if dirs:
+            extra = '（发现 %d 处，可切换）' % len(dirs) if len(dirs) > 1 else ''
+            lbl_d.configure(text='安装目录：%s %s' % (target, extra), fg=TEXT)
+            dot_d.configure(fg=OK)
+        else:
+            lbl_d.configure(text='安装目录：未找到：%s（请“更换安装目录”）' % target, fg=BAD)
+            dot_d.configure(fg=BAD)
 
+    def refresh_info(emit=None):
+        p = manual['p'] or find_original()
         dirs = _dirs_with_rizomuv()
         target = install_dir()
-        if dirs:
-            lines.append('✓ 安装目录：%s' % target)
-            if len(dirs) > 1:
-                lines.append('  （共发现 %d 处，可用“更换目录”切换）' % len(dirs))
+        if emit:
+            emit(('__INFO__', p, dirs, target))
         else:
-            lines.append('✗ 未找到安装目录：%s' % target)
-            lines.append('  如果 RizomUV 装在别处，请点“更换目录”。')
-        color = '#0a7a2f' if (p and dirs) else '#c0392b'
-        info.configure(text='\n'.join(lines), foreground=color)
+            set_cards(p, dirs, target)
 
-    def detect():
-        refresh_info()
+    # ---- 工具按钮行 ----
+    tools = tk.Frame(body, bg='#FFFFFF')
+    tools.pack(fill='x', pady=(2, 10))
 
-    bar = tk.Frame(frm)
-    bar.pack(fill='x', pady=10)
+    def ghost(parent, text, cmd):
+        return tk.Button(parent, text=text, font=(FONT, 10), command=cmd,
+                         bg='#FFFFFF', fg=PRIMARY, bd=1,
+                         highlightbackground=BORDER, highlightthickness=1,
+                         relief='flat', padx=10, pady=4, cursor='hand2')
 
     def pick():
         f = filedialog.askopenfilename(title='选择英文原版 rizomuv.exe',
@@ -517,111 +553,131 @@ def gui():
         refresh_info()
 
     def pick_dir():
-        d = filedialog.askdirectory(title='选择 RizomUV 的安装目录（里面有 rizomuv.exe）')
+        d = filedialog.askdirectory(title='选择 RizomUV 安装目录（含 rizomuv.exe 的文件夹）')
         if not d:
             return
         dp = Path(d)
         if not (dp / EXE_NAME).exists():
-            messagebox.showerror('不是安装目录', '这个目录里没有 rizomuv.exe。\n请选择包含 rizomuv.exe 的文件夹，例如 D:\\RizomUV 2027.0')
+            messagebox.showerror('不是安装目录', '这个文件夹里没有 rizomuv.exe。\n请选择包含 rizomuv.exe 的目录。')
             return
         set_install_dir(dp)
         refresh_info()
 
-    btn_pick = tk.Button(bar, text='选择原版文件', font=('Microsoft YaHei UI', 10), command=pick)
+    btn_pick = ghost(tools, '选择原版文件', pick)
     btn_pick.pack(side='left', padx=(0, 8))
-    btn_dir = tk.Button(bar, text='更换安装目录', font=('Microsoft YaHei UI', 10), command=pick_dir)
+    btn_dir = ghost(tools, '更换安装目录', pick_dir)
     btn_dir.pack(side='left')
 
-    logbox = tk.Text(frm, height=13, font=('Consolas', 9), wrap='none')
-    logbox.pack(fill='both', expand=True, side='left')
-    scroll = tk.Scrollbar(frm, command=logbox.yview)
-    scroll.pack(fill='y', side='right')
+    # ---- 日志区 ----
+    tk.Label(body, text='操作日志', font=(FONT, 10, 'bold'), bg='#FFFFFF',
+             fg=MUTED).pack(anchor='w', pady=(0, 4))
+    logwrap = tk.Frame(body, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
+    logwrap.pack(fill='both', expand=True)
+    logbox = tk.Text(logwrap, height=11, font=('Consolas', 9), wrap='none',
+                     bg=CARD, fg=TEXT, relief='flat', bd=0, padx=8, pady=6)
+    logbox.pack(side='left', fill='both', expand=True)
+    scroll = tk.Scrollbar(logwrap, command=logbox.yview)
+    scroll.pack(side='right', fill='y')
     logbox.configure(yscrollcommand=scroll.set)
+
+    # ---- 主操作按钮 ----
+    actions = tk.Frame(body, bg='#FFFFFF')
+    actions.pack(fill='x', pady=(12, 0))
+
+    def finish_work():
+        running['v'] = False
+        for b in (btn_han, btn_res, btn_pick, btn_dir):
+            b.configure(state='normal')
 
     def pump():
         try:
             while True:
-                s = q.get_nowait()
-                logbox.insert('end', s + '\n')
-                logbox.see('end')
+                item = q.get_nowait()
+                if isinstance(item, tuple) and item and item[0] == '__ASK__':
+                    _, question, resp_q = item
+                    root.attributes('-topmost', True)
+                    ans = messagebox.askyesno('确认', question)
+                    root.attributes('-topmost', False)
+                    resp_q.put(ans)
+                elif isinstance(item, tuple) and item and item[0] == '__INFO__':
+                    _, p, dirs, target = item
+                    set_cards(p, dirs, target)
+                elif item == '__DONE__':
+                    finish_work()
+                else:
+                    logbox.insert('end', str(item) + '\n')
+                    logbox.see('end')
         except queue.Empty:
             pass
-        if running['v']:
-            root.after(120, pump)
-
-    def runner(fn, *a):
-        running['v'] = True
-        btn_han.configure(state='disabled')
-        btn_res.configure(state='disabled')
-        btn_pick.configure(state='disabled')
-        btn_dir.configure(state='disabled')
         root.after(100, pump)
+
+    def runner(task):
+        running['v'] = True
+        for b in (btn_han, btn_res, btn_pick, btn_dir):
+            b.configure(state='disabled')
+        logbox.delete('1.0', 'end')
+
+        def emit(msg):
+            q.put(msg)
+
+        def ask(question):
+            resp_q = queue.Queue()
+            q.put(('__ASK__', question, resp_q))
+            return resp_q.get()
 
         def work():
             try:
-                fn(*a, emit=q.put)
-                q.put('')
-                q.put('✅ 操作成功完成。')
+                task(emit, ask)
             except Exception as e:
-                q.put('')
-                q.put('❌ 失败：%s' % e)
-                messagebox.showerror('操作失败', str(e))
+                emit('')
+                emit('❌ 失败：%s' % e)
             finally:
-                running['v'] = False
                 q.put('__DONE__')
 
-        def finish():
-            try:
-                while True:
-                    s = q.get_nowait()
-                    if s == '__DONE__':
-                        break
-                    logbox.insert('end', s + '\n')
-            except queue.Empty:
-                pass
-            logbox.see('end')
-            btn_han.configure(state='normal')
-            btn_res.configure(state='normal')
-            btn_pick.configure(state='normal')
-            btn_dir.configure(state='normal')
+        threading.Thread(target=work, daemon=True).start()
 
-        def watch():
-            if running['v']:
-                root.after(120, watch)
-            else:
-                finish()
-        root.after(120, watch)
-
-    def on_han():
+    def task_han(emit, ask):
+        emit('正在检测英文原版（读取校验，约几秒）…')
         p = manual['p'] or find_original()
         ok, msg = check_version(p)
+        emit(msg)
         if not ok:
-            messagebox.showerror('版本不匹配，已停止', msg)
+            emit('已停止。请检查版本，或点“选择原版文件”。')
             return
         target = install_dir()
         if not (target / EXE_NAME).exists():
-            messagebox.showerror('找不到安装目录',
-                                 '在 %s 没找到 rizomuv.exe。\n请点“更换安装目录”选择正确的文件夹。' % target)
+            emit('找不到安装目录：%s' % target)
+            emit('请点“更换安装目录”选择正确文件夹。')
             return
-        if not messagebox.askyesno('确认', '即将把简体中文版安装到：\n%s\n\n确认无误且 RizomUV 已关闭？' % target):
+        if not ask('即将把简体中文版安装到：\n%s\n\n确认 RizomUV 已关闭？' % target):
+            emit('已取消。')
             return
-        runner(do_install, p)
+        do_install(p, emit=emit)
 
-    def on_res():
-        if not messagebox.askyesno('确认', '即将把 RizomUV 恢复为英文原版。继续？'):
+    def task_res(emit, ask):
+        target = install_dir()
+        if not (target / EXE_NAME).exists():
+            emit('找不到安装目录：%s' % target)
+            emit('请点“更换安装目录”。')
             return
-        runner(do_restore)
+        if not ask('即将把 RizomUV 恢复为英文原版：\n%s\n\n继续？' % target):
+            emit('已取消。')
+            return
+        do_restore(emit=emit)
 
-    actions = tk.Frame(frm)
-    actions.pack(fill='x', pady=(10, 0))
-    btn_han = tk.Button(actions, text='一键汉化', font=('Microsoft YaHei UI', 11, 'bold'),
-                        bg='#1f6feb', fg='white', width=14, command=on_han)
-    btn_han.pack(side='left', padx=(0, 10))
-    btn_res = tk.Button(actions, text='一键还原', font=('Microsoft YaHei UI', 11),
-                        width=14, command=on_res)
+    btn_han = tk.Button(actions, text='一键汉化', font=(FONT, 11, 'bold'),
+                        bg=PRIMARY, fg='white', bd=0, width=15, pady=7,
+                        activebackground=PRIMARY_DK, activeforeground='white',
+                        cursor='hand2', command=lambda: runner(task_han))
+    btn_han.pack(side='left', padx=(0, 12))
+    btn_res = tk.Button(actions, text='一键还原', font=(FONT, 11),
+                        bg='#FFFFFF', fg=TEXT, bd=1, width=15, pady=7,
+                        highlightbackground=BORDER, highlightthickness=1,
+                        relief='flat', cursor='hand2', command=lambda: runner(task_res))
     btn_res.pack(side='left')
 
-    detect()
+    threading.Thread(target=lambda: refresh_info(q.put), daemon=True).start()
+    root.after(100, pump)
     root.mainloop()
 
 
