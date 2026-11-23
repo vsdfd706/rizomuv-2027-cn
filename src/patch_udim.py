@@ -43,7 +43,7 @@ for context, prefix, english, chinese in SLOTS:
         raise SystemExit(f'当前版本槽位内容不符: {english!r}')
 
     budget = gap_end(data, off) - off
-    nb = chinese.encode('utf-8')
+    nb = chinese.encode('gbk')
     if len(nb) + 1 > budget:
         raise SystemExit(f'空间不足: {english!r} budget={budget}, need={len(nb) + 1}')
 

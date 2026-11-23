@@ -17,7 +17,7 @@ for en,zh in words.items():
     if pos<0: print('NOTFOUND',en);continue
     off=pos+1
     budget=gap_end(d,off)-off
-    nb=zh.encode('utf-8')
+    nb=zh.encode('gbk')
     if len(nb)+1>budget:
         print('TOOLONG',en,'budget',budget,'need',len(nb)+1);continue
     d[off:off+budget]=nb+b'\x00'*(budget-len(nb))

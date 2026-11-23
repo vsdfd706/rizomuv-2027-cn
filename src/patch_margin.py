@@ -33,7 +33,7 @@ en = EN.read_bytes()
 data = bytearray(BASE.read_bytes())
 
 for english, chinese in SLOTS:
-    context = english.encode('utf-8')
+    context = english.encode('gbk')
     hits = []
     start = 0
     while True:
@@ -56,7 +56,7 @@ for english, chinese in SLOTS:
         raise SystemExit(f'当前版本槽位内容不符: {english[:30]!r}')
 
     budget = gap_end(data, off) - off
-    nb = chinese.encode('utf-8')
+    nb = chinese.encode('gbk')
     if len(nb) + 1 > budget:
         raise SystemExit(f'空间不足: {english[:30]!r} budget={budget}, need={len(nb) + 1}')
 

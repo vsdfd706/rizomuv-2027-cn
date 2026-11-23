@@ -32,8 +32,8 @@ _DYNAMIC_DEPS = (_json_for_packer, _re_for_packer)
 
 # ---------------------------------------------------------------- 常量
 EXPECTED_MD5 = '2ddf8d6da2000ae3eac66d7eea59a311'      # 原版 2027.0.598.g864535413
-EXPECTED_OUTPUT_MD5 = '1a2c16e67fb3a1b595c0fa0622f1940a'  # 汉化版自检值
-APP_TITLE = 'RizomUV 2027 简体中文汉化工具'
+EXPECTED_OUTPUT_MD5 = '8ba87c99da123a05ef676172df1f4d48'  # GBK版汉化自检值(Win10默认GBK系统)
+APP_TITLE = 'RizomUV 2027 简体中文汉化工具 (GBK兼容版)'
 
 PF = os.environ.get('ProgramFiles') or r'C:\Program Files'
 PF86 = os.environ.get('ProgramFiles(x86)') or r'C:\Program Files (x86)'

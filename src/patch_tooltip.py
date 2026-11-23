@@ -17,7 +17,7 @@ def patch(en, zh):
         print('NOTFOUND',repr(en)); return
     off=pos+1
     budget=gap_end(d,off)-off
-    nb=zh.encode('utf-8')
+    nb=zh.encode('gbk')
     if len(nb)+1>budget:
         print('TOOLONG',repr(en),'budget',budget,'need',len(nb)+1); return
     d[off:off+budget]=nb+b'\x00'*(budget-len(nb))

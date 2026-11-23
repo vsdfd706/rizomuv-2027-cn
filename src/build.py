@@ -124,7 +124,7 @@ for en, zh in tr.items():
     if not occ:
         notfound.append(en)
         continue
-    nb = zh.encode('utf-8')
+    nb = zh.encode('gbk')
     done = False
     for m in occ:
         off = m + 1
@@ -160,7 +160,7 @@ for en, zh in tr.items():
 # 强制补丁：只对显式放行的 UI 标签，且不得超出原文长度
 forced = 0
 for en in FORCE & set(tr):
-    nb = tr[en].encode('utf-8')
+    nb = tr[en].encode('gbk')
     if len(nb) > len(en):
         continue
     for off in find_all(b'\x00' + en.encode('ascii') + b'\x00'):

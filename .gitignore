@@ -5,6 +5,7 @@ rizomuv.exe.bak
 # 默认全局排除 exe；下方单独放行“补丁工具”exe（它不含 RizomUV 本体）
 *.exe
 !dist/RizomUV汉化工具.exe
+!dist/RizomUV汉化工具_GBK版.exe
 
 # 构建 / 输出目录
 build/

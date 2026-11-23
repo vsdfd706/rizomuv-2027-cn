@@ -18,7 +18,7 @@ for en,zh in words.items():
     if p<0: print('NF',en);continue
     off=p+1
     budget=gap_end(d,off)-off
-    nb=zh.encode('utf-8')
+    nb=zh.encode('gbk')
     if len(nb)+1>budget: print('TOOLONG',en,budget,len(nb)+1);continue
     d[off:off+budget]=nb+b'\x00'*(budget-len(nb))
     print('PATCH',f'{en!r:<26}','->',zh)

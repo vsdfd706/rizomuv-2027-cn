@@ -37,17 +37,17 @@ def main():
         k = j
         while buf[k] == 0:
             k += 1
-        actual = bytes(buf[off:j]).decode('utf-8', 'replace')
+        actual = bytes(buf[off:j]).decode('gbk', 'replace')
         if actual == zh:
             print('SKIP @%s already %s' % (hex(off), zh))
             continue
         if actual != en:
             raise SystemExit('MISMATCH @%s expected %r got %r' % (hex(off), en, actual))
         slot = k - off
-        need = len(zh.encode('utf-8')) + 1
+        need = len(zh.encode('gbk')) + 1
         if need > slot:
             raise SystemExit('NO SPACE @%s %s need=%d slot=%d' % (hex(off), en, need, slot))
-        buf[off:k] = zh.encode('utf-8') + b'\x00' * (slot - len(zh.encode('utf-8')))
+        buf[off:k] = zh.encode('gbk') + b'\x00' * (slot - len(zh.encode('gbk')))
         print('%-10s %-20s -> %-12s slot=%2d need=%2d' % (hex(off), en, zh, slot, need))
     OUT.write_bytes(bytes(buf))
     print('OUTPUT', OUT)

@@ -29,7 +29,7 @@ for off, english, chinese in SLOTS:
     if data[off:off + len(english)] != english.encode('ascii'):
         raise SystemExit(f'槽位内容不符: {english!r} @ {hex(off)}')
     budget = gap_end(data, off) - off
-    nb = chinese.encode('utf-8')
+    nb = chinese.encode('gbk')
     if len(nb) + 1 > budget:
         raise SystemExit(f'空间不足: {english!r} budget={budget}, need={len(nb)+1}')
     data[off:off + budget] = nb + b'\x00' * (budget - len(nb))
