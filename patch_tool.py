@@ -85,18 +85,117 @@ def log(msg=''):
     print(msg, flush=True)
 
 
+# 运行时可被用户/GUI 覆盖的安装目录
+INSTALL_DIR_OVERRIDE: Path | None = None
+
+
+def set_install_dir(path: Path | None):
+    global INSTALL_DIR_OVERRIDE
+    INSTALL_DIR_OVERRIDE = Path(path) if path else None
+
+
+def _dirs_with_rizomuv() -> list:
+    """多途径探测可能装着 RizomUV 的目录（按可信度排序，去重）。"""
+    found = []
+
+    def add(p):
+        if p and p.exists() and (p / EXE_NAME).exists():
+            k = str(p).lower()
+            if k not in seen:
+                seen.add(k)
+                found.append(p)
+
+    seen = set()
+
+    # 1) 用户手动指定（最高优先级）
+    if INSTALL_DIR_OVERRIDE:
+        add(INSTALL_DIR_OVERRIDE)
+
+    # 2) Windows 卸载注册表（最可靠，能找到自定义安装路径）
+    try:
+        import winreg
+        roots = [
+            (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'),
+            (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'),
+            (winreg.HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'),
+        ]
+        for hive, base in roots:
+            try:
+                key = winreg.OpenKey(hive, base)
+            except OSError:
+                continue
+            i = 0
+            while True:
+                try:
+                    sub = winreg.EnumKey(key, i)
+                except OSError:
+                    break
+                i += 1
+                try:
+                    sk = winreg.OpenKey(key, sub)
+                    display, _ = winreg.QueryValueEx(sk, 'DisplayName')
+                    if display and 'rizomuv' in str(display).lower():
+                        for val in ('InstallLocation', 'DisplayIcon'):
+                            try:
+                                raw, _ = winreg.QueryValueEx(sk, val)
+                                if raw:
+                                    p = Path(str(raw).strip('"'))
+                                    add(p if p.is_dir() else p.parent)
+                            except OSError:
+                                pass
+                    winreg.CloseKey(sk)
+                except OSError:
+                    pass
+            winreg.CloseKey(key)
+    except Exception:
+        pass
+
+    # 3) 常见固定路径 + 各盘符下的常见位置
+    candidates = list(INSTALL_DIRS)
+    drives = []
+    try:
+        import string
+        for letter in string.ascii_uppercase:
+            d = Path(f'{letter}:\\')
+            if d.exists():
+                drives.append(d)
+    except Exception:
+        pass
+    for dr in drives:
+        candidates += [
+            dr / 'Rizom Lab' / 'RizomUV 2027.0',
+            dr / 'Program Files' / 'Rizom Lab' / 'RizomUV 2027.0',
+            dr / 'Program Files (x86)' / 'Rizom Lab' / 'RizomUV 2027.0',
+        ]
+    for p in candidates:
+        add(p)
+
+    # 4) 用户目录、桌面、下载里的 rizomuv.exe（便携版 / 绿色版）
+    for env in ('USERPROFILE', 'PUBLIC', 'OneDrive'):
+        base = os.environ.get(env)
+        if base:
+            for sub in ('Desktop', 'Downloads', 'Documents', 'Rizom Lab', 'RizomUV 2027.0'):
+                add(Path(base) / sub)
+
+    # 本补丁仅适用 2027.0.598：把名字含 2027 的目录排到最前
+    found.sort(key=lambda p: 0 if '2027' in str(p) else 1)
+    return found
+
+
 def install_dir() -> Path:
-    for d in INSTALL_DIRS:
-        if (d / EXE_NAME).exists() or (d / BAK_NAME).exists():
-            return d
-    return INSTALL_DIRS[0]
+    dirs = _dirs_with_rizomuv()
+    if dirs:
+        return dirs[0]
+    # 没探测到，返回默认路径（install() 会给出明确错误）
+    return INSTALL_DIR_OVERRIDE or INSTALL_DIRS[0]
 
 
 def original_candidates() -> list:
     """收集可能的英文原版 exe 路径（按优先级）。"""
     out = []
-    d = install_dir()
-    out += [d / BAK_NAME, d / EXE_NAME]
+    # 覆盖所有探测到的安装目录，而不只是第一个
+    for d in _dirs_with_rizomuv():
+        out += [d / BAK_NAME, d / EXE_NAME]
     here = resource_dir()
     out += [here / 'rizomuv.exe.bak', here / EXE_NAME]
     for line in ['C:\\Users\\Public\\Downloads\\rizomuv.exe']:
@@ -211,6 +310,9 @@ def rizomuv_running() -> bool:
     except Exception:
         pass
     return False
+
+
+def need_admin(target: Path) -> bool:
     """目标不可写时需要管理员权限。"""
     try:
         with open(target / '__wtest__.tmp', 'wb'):
@@ -280,6 +382,11 @@ def do_install(manual_original: Path | None = None, emit=log):
     emit(msg)
     if not ok:
         raise RuntimeError('版本校验未通过，已停止。' + ('\n' + msg if '\n' not in msg else ''))
+    dirs = _dirs_with_rizomuv()
+    if len(dirs) > 1:
+        emit('检测到多个 RizomUV 安装目录，使用：%s' % dirs[0])
+        for d in dirs[1:]:
+            emit('       （另有：%s）' % d)
     target = install_dir()
     emit('安装目录：%s' % target)
     if need_admin(target) and not is_admin():
@@ -307,6 +414,9 @@ def cli():
     if '--exe' in sys.argv:
         p = sys.argv[sys.argv.index('--exe') + 1]
         manual = Path(p)
+    if '--dir' in sys.argv:
+        p = sys.argv[sys.argv.index('--dir') + 1]
+        set_install_dir(Path(p))
     if '--selftest' in sys.argv:
         try:
             orig = manual or find_original()
@@ -344,7 +454,7 @@ def gui():
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry('680x460')
+    root.geometry('680x500')
     root.resizable(False, False)
 
     q = queue.Queue()
@@ -357,24 +467,38 @@ def gui():
     tk.Label(frm, text='只汉化界面文字，不改动任何功能。请先关闭 RizomUV。',
              font=('Microsoft YaHei UI', 10), foreground='#555').pack(anchor='w', pady=(2, 10))
 
-    info = tk.Label(frm, text='正在检测英文原版...', font=('Microsoft YaHei UI', 10),
+    info = tk.Label(frm, text='正在检测...', font=('Microsoft YaHei UI', 10),
                     justify='left', anchor='w')
     info.pack(fill='x')
 
-    def detect():
-        p = find_original()
-        if p:
-            info.configure(text='✓ 已找到英文原版：\n  %s\n  安装目录：%s' % (p, install_dir()),
-                           foreground='#0a7a2f')
-            return p
-        cands = original_candidates()
-        tip = '✗ 未自动找到英文原版（需要 2027.0.598）。\n  请点“选择原版文件”手动指定。'
-        if cands:
-            tip += '\n  检测到这些文件但版本不符：\n  ' + '\n  '.join(str(c) for c in cands[:4])
-        info.configure(text=tip, foreground='#c0392b')
-        return None
-
     manual = {'p': None}
+
+    def refresh_info():
+        """统一刷新检测信息（原版 + 安装目录）。"""
+        p = manual['p'] or find_original()
+        lines = []
+        if p:
+            lines.append('✓ 英文原版：%s' % p)
+        else:
+            cands = original_candidates()
+            lines.append('✗ 未自动找到英文原版（需要 2027.0.598），请点“选择原版文件”。')
+            if cands:
+                lines.append('  检测到这些文件但版本不符：' + '、'.join(str(c) for c in cands[:3]))
+
+        dirs = _dirs_with_rizomuv()
+        target = install_dir()
+        if dirs:
+            lines.append('✓ 安装目录：%s' % target)
+            if len(dirs) > 1:
+                lines.append('  （共发现 %d 处，可用“更换目录”切换）' % len(dirs))
+        else:
+            lines.append('✗ 未找到安装目录：%s' % target)
+            lines.append('  如果 RizomUV 装在别处，请点“更换目录”。')
+        color = '#0a7a2f' if (p and dirs) else '#c0392b'
+        info.configure(text='\n'.join(lines), foreground=color)
+
+    def detect():
+        refresh_info()
 
     bar = tk.Frame(frm)
     bar.pack(fill='x', pady=10)
@@ -390,11 +514,23 @@ def gui():
             messagebox.showerror('版本不匹配', msg)
             return
         manual['p'] = p
-        info.configure(text='✓ 已选择英文原版：\n  %s\n  安装目录：%s' % (p, install_dir()),
-                       foreground='#0a7a2f')
+        refresh_info()
+
+    def pick_dir():
+        d = filedialog.askdirectory(title='选择 RizomUV 的安装目录（里面有 rizomuv.exe）')
+        if not d:
+            return
+        dp = Path(d)
+        if not (dp / EXE_NAME).exists():
+            messagebox.showerror('不是安装目录', '这个目录里没有 rizomuv.exe。\n请选择包含 rizomuv.exe 的文件夹，例如 D:\\RizomUV 2027.0')
+            return
+        set_install_dir(dp)
+        refresh_info()
 
     btn_pick = tk.Button(bar, text='选择原版文件', font=('Microsoft YaHei UI', 10), command=pick)
-    btn_pick.pack(side='left')
+    btn_pick.pack(side='left', padx=(0, 8))
+    btn_dir = tk.Button(bar, text='更换安装目录', font=('Microsoft YaHei UI', 10), command=pick_dir)
+    btn_dir.pack(side='left')
 
     logbox = tk.Text(frm, height=13, font=('Consolas', 9), wrap='none')
     logbox.pack(fill='both', expand=True, side='left')
@@ -418,6 +554,7 @@ def gui():
         btn_han.configure(state='disabled')
         btn_res.configure(state='disabled')
         btn_pick.configure(state='disabled')
+        btn_dir.configure(state='disabled')
         root.after(100, pump)
 
         def work():
@@ -446,6 +583,7 @@ def gui():
             btn_han.configure(state='normal')
             btn_res.configure(state='normal')
             btn_pick.configure(state='normal')
+            btn_dir.configure(state='normal')
 
         def watch():
             if running['v']:
@@ -460,7 +598,12 @@ def gui():
         if not ok:
             messagebox.showerror('版本不匹配，已停止', msg)
             return
-        if not messagebox.askyesno('确认', '即将把简体中文版安装到：\n%s\n\n请确认 RizomUV 已关闭。继续？' % install_dir()):
+        target = install_dir()
+        if not (target / EXE_NAME).exists():
+            messagebox.showerror('找不到安装目录',
+                                 '在 %s 没找到 rizomuv.exe。\n请点“更换安装目录”选择正确的文件夹。' % target)
+            return
+        if not messagebox.askyesno('确认', '即将把简体中文版安装到：\n%s\n\n确认无误且 RizomUV 已关闭？' % target):
             return
         runner(do_install, p)
 
