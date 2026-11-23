@@ -24,6 +24,12 @@ import threading
 import runpy
 from pathlib import Path
 
+# 补丁脚本通过 runpy 动态加载，PyInstaller 静态分析看不到它们内部的 import。
+# 这里显式声明，强制把 json/re 打进 exe，否则运行到 build.py 会报 No module named 'json'。
+import json as _json_for_packer
+import re as _re_for_packer
+_DYNAMIC_DEPS = (_json_for_packer, _re_for_packer)
+
 # ---------------------------------------------------------------- 常量
 EXPECTED_MD5 = '2ddf8d6da2000ae3eac66d7eea59a311'      # 原版 2027.0.598.g864535413
 EXPECTED_OUTPUT_MD5 = '1a2c16e67fb3a1b595c0fa0622f1940a'  # 汉化版自检值

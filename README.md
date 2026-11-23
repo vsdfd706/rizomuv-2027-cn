@@ -71,12 +71,17 @@ python build_all.py
 ```bash
 pip install pyinstaller
 python -m PyInstaller --noconfirm --onefile --windowed --name "RizomUV汉化工具" ^
+  --hidden-import tkinter --collect-all tkinter ^
   --add-data "src;src" --add-data "dicts;dicts" ^
   --add-data "force_patch.txt;." --add-data "prefs_backup.txt;." --add-data "shortbuf.txt;." ^
   patch_tool.py
 # 产出：dist/RizomUV汉化工具.exe
 # 自检：dist\RizomUV汉化工具.exe --selftest --exe 你的原版.exe
 ```
+
+> **打包环境要求**：用于打包的 Python 必须是**完整安装**（自带 `tkinter` 且 `<Python目录>\tcl\tcl8.6\init.tcl` 存在），精简版/沙箱版 Python 缺 Tcl 数据，打出的 exe 会在启动时报 `ModuleNotFoundError: tkinter` 或 `Can't find init.tcl`。`--collect-all tkinter` 不能省。
+>
+> 另：补丁脚本由 `runpy` 动态加载，PyInstaller 静态分析看不到它们内部的 `import json/re`，所以 `patch_tool.py` 顶部已显式导入这两个模块强制打包，不要删。
 
 ### 工作原理
 
