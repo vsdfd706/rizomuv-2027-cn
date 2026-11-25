@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-RizomUV 2027.0.598 简体中文补丁 —— 一键构建
+老版本 RizomUV 2027.0.598 Win 简体中文补丁 —— 一键构建
 
 从你自己购买的英文原版 rizomuv.exe 出发，依次应用词典与 UI 补丁，
 产出纯界面汉化版（不改动任何内部运行逻辑）。
@@ -25,7 +25,7 @@ OUT = ROOT / 'out'
 DICT = ROOT / 'dicts'
 SCRIPTS = ROOT / 'src'
 
-# 英文原版预期 MD5（RizomUV 2027.0.598.g864535413）
+# 英文原版预期 MD5（老版本 RizomUV 2027.0.598 Win.g864535413）
 EXPECTED_MD5 = '2ddf8d6da2000ae3eac66d7eea59a311'
 
 

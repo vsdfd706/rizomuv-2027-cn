@@ -31,7 +31,7 @@ import re as _re_for_packer
 _DYNAMIC_DEPS = (_json_for_packer, _re_for_packer)
 
 # ---------------------------------------------------------------- 常量
-EXPECTED_MD5 = '2ddf8d6da2000ae3eac66d7eea59a311'      # 原版 2027.0.598.g864535413
+EXPECTED_MD5 = '2ddf8d6da2000ae3eac66d7eea59a311'      # 老版本原版 RizomUV 2027.0.598 Win.g864535413
 EXPECTED_OUTPUT_MD5 = '1a2c16e67fb3a1b595c0fa0622f1940a'  # 汉化版自检值
 APP_TITLE = 'RizomUV 2027 简体中文汉化工具'
 
@@ -177,7 +177,7 @@ def _dirs_with_rizomuv() -> list:
             for sub in ('Desktop', 'Downloads', 'Documents', 'Rizom Lab', 'RizomUV 2027.0'):
                 add(Path(base) / sub)
 
-    # 本补丁仅适用 2027.0.598：把名字含 2027 的目录排到最前
+    # 本补丁仅适用老版本 2027.0.598 Win：把名字含 2027 的目录排到最前
     found.sort(key=lambda p: 0 if '2027' in str(p) else 1)
     return found
 
@@ -227,12 +227,12 @@ def check_version(exe: Path):
         return False, '找不到文件：%s' % exe
     actual = md5(exe)
     if actual == EXPECTED_MD5:
-        return True, '版本正确：RizomUV 2027.0.598（g864535413）'
+        return True, '版本正确：老版本 RizomUV 2027.0.598 Win（g864535413）'
     # 判断是否已经是汉化版
     tag = ''
     if actual == EXPECTED_OUTPUT_MD5:
         tag = '（这个文件看起来已经是汉化版了，不能用它再次构建）'
-    return False, ('版本不匹配：需要 RizomUV 2027.0.598（g864535413）\n'
+    return False, ('版本不匹配：需要老版本 RizomUV 2027.0.598 Win（g864535413）\n'
                    '  期望 MD5：%s\n'
                    '  你的文件：%s%s\n'
                    '  请改用正确的英文原版 rizomuv.exe。' % (EXPECTED_MD5, actual, tag))
@@ -507,7 +507,7 @@ def gui():
             dot_p.configure(fg=OK)
         else:
             cands = original_candidates()
-            tip = '英文原版：未找到（需 2027.0.598）'
+            tip = '英文原版：未找到（需老版本 2027.0.598 Win）'
             if cands:
                 tip += ' · 检测到但版本不符：' + '、'.join(c.name for c in cands[:3])
             lbl_p.configure(text=tip, fg=BAD)
