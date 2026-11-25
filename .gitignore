@@ -2,15 +2,19 @@
 # 英文原版备份（使用者自备，含商业软件本体）
 rizomuv.exe.bak
 
-# 默认全局排除 exe；下方单独放行“补丁工具”exe（它不含 RizomUV 本体）
+# 默认全局排除 exe；下方单独放行“补丁工具”exe（它们不含 RizomUV 本体）
 *.exe
-!dist/RizomUV汉化工具.exe
+!v598/dist/RizomUV汉化工具.exe
+!v648/dist/RizomUV汉化工具_648.exe
 
-# 构建 / 输出目录
+# 构建 / 输出目录（打包临时产物，不入库）
 build/
 out/
 build_pyi/
+v*/build_pyi/
 *.spec
+!v598/RizomUV汉化工具.spec
+!v648/打包.spec
 
 # ===== 虚拟环境 =====
 .venv/
