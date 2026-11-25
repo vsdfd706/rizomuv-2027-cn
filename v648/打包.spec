@@ -1,7 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
-# 新版本一键汉化 exe 打包配置。在 v648 目录内运行：
+# 新版本一键汉化 exe 打包配置（GUI 版）。
+# 需要带完整 tkinter 的 Python；在 v648 目录内运行：
 #   python -m PyInstaller --noconfirm --distpath dist --workpath build_pyi 打包.spec
 import os
+from PyInstaller.utils.hooks import collect_all
 
 _HERE = os.path.dirname(os.path.abspath(SPEC))
 
@@ -12,17 +14,24 @@ datas = [
     (os.path.join(_HERE, 'verified_dict.json'), '.'),
     (os.path.join(_HERE, 'dicts'), 'dicts'),
 ]
+binaries = []
+hiddenimports = ['patch_tool', 'ui_theme', 'json', 're', 'tkinter']
+# 完整打入 tcl/tk 数据（init.tcl 等），否则运行时报 Can't find init.tcl
+_tk = collect_all('tkinter')
+datas += _tk[0]
+binaries += _tk[1]
+hiddenimports += _tk[2]
 
 a = Analysis(
-    ['_launcher.py'],
+    ['_gui_launcher.py'],
     pathex=[_HERE],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
-    hiddenimports=['patch_tool', 'json', 're'],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter'],  # 控制台版入口不需要 GUI；打包环境也可能缺 tcl/tk
+    excludes=[],
     noarchive=False,
     optimize=0,
 )
@@ -41,7 +50,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=False,          # GUI 窗口，无控制台黑框
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

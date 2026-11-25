@@ -411,95 +411,107 @@ def cli():
 
 # ---------------------------------------------------------------- 图形界面
 def gui():
+    """现代简洁的图形界面 —— Premium Minimal / 浅色中性。
+
+    底层流程（探测 / 校验 / 构建 / 安装 / 还原 / 询问）保持不变，
+    本函数只负责视觉呈现、布局与交互反馈。
+    """
     import tkinter as tk
     from tkinter import filedialog, messagebox
-
-    # ---- 配色 ----
-    PRIMARY = '#2563EB'
-    PRIMARY_DK = '#1D4ED8'
-    OK = '#059669'
-    BAD = '#DC2626'
-    TEXT = '#1F2937'
-    MUTED = '#6B7280'
-    CARD = '#F8FAFC'
-    BORDER = '#E2E8F0'
-    FONT = 'Microsoft YaHei UI'
+    import ui_theme as T
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry('700x560')
-    root.resizable(False, False)
-    root.configure(bg='#FFFFFF')
+    root.geometry('%dx%d' % (T.WIN_W, T.WIN_H))
+    root.minsize(T.MIN_W, T.MIN_H)
+    root.configure(bg=T.SURFACE)
+
+    # 高 DPI awareness（Windows）：让字体在缩放屏上更清晰
+    try:
+        from ctypes import windll
+        windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
+    F = T.FONT_UI
+    MONO = T.FONT_MONO
 
     q = queue.Queue()
     running = {'v': False}
     manual = {'p': None}
-    state = {'dot': None}
 
-    # ---- 顶部标题条 ----
-    header = tk.Frame(root, bg=PRIMARY, height=78)
-    header.pack(fill='x')
-    header.pack_propagate(False)
-    tk.Label(header, text='  RizomUV 2027.0.648  简体中文汉化', font=(FONT, 16, 'bold'),
-             bg=PRIMARY, fg='white').pack(anchor='w', pady=(12, 0))
-    tk.Label(header, text='  只汉化界面文字，不改动任何功能', font=(FONT, 10),
-             bg=PRIMARY, fg='#DBEAFE').pack(anchor='w', pady=(2, 0))
+    # ------------------------------------------------------------------
+    # 根布局：品牌区 / 主体 / 底部操作区，主体用 grid 权重实现响应式
+    # ------------------------------------------------------------------
+    root.columnconfigure(0, weight=1)
+    root.rowconfigure(2, weight=1)  # 主体（row 2）随窗口高度伸缩
 
-    body = tk.Frame(root, bg='#FFFFFF', padx=20, pady=14)
-    body.pack(fill='both', expand=True)
+    # ---- 品牌区（纯文字，无底板/无角标）----
+    header = tk.Frame(root, bg=T.SURFACE)
+    header.grid(row=0, column=0, sticky='ew')
+    header.columnconfigure(1, weight=1)
+    head_inner = tk.Frame(header, bg=T.SURFACE)
+    head_inner.grid(row=0, column=0, sticky='w', padx=T.PAD_X, pady=(T.SP['lg'], T.SP['md']))
+    head_inner.columnconfigure(1, weight=1)
 
-    # ---- 状态卡片 ----
-    def card(parent):
-        f = tk.Frame(parent, bg=CARD, highlightbackground=BORDER,
-                     highlightthickness=1, padx=12, pady=9)
-        f.pack(fill='x', pady=(0, 8))
-        dot = tk.Label(f, text='●', font=(FONT, 13), bg=CARD, fg=MUTED)
-        dot.pack(side='left', padx=(0, 8))
-        lbl = tk.Label(f, text='检测中…', font=(FONT, 10), bg=CARD, fg=TEXT,
-                       justify='left', anchor='w', wraplength=610)
-        lbl.pack(side='left', fill='x')
+    tk.Label(head_inner, text='RizomUV 汉化', font=(F, T.FS['brand'], 'bold'),
+             bg=T.SURFACE, fg=T.TEXT).grid(row=0, column=0, sticky='w')
+    # 版本标签：纯文字，无彩色底板
+    tk.Label(head_inner, text='2027.0.648 · 新版本', font=(F, T.FS['subtitle']),
+             bg=T.SURFACE, fg=T.TEXT_DIM).grid(row=0, column=1, sticky='w', padx=(T.SP['sm'], 0))
+    tk.Label(head_inner, text='只汉化界面文字，不改动任何功能',
+             font=(F, T.FS['body']), bg=T.SURFACE, fg=T.TEXT_2).grid(
+                 row=1, column=0, columnspan=2, sticky='w', pady=(T.SP['xs'], 0))
+
+    # 一条极淡分隔（唯一的结构线，用于区分品牌与内容）
+    sep = tk.Frame(root, bg=T.BORDER, height=1)
+    sep.grid(row=1, column=0, sticky='ew')
+
+    # ---- 主体 ----
+    body = tk.Frame(root, bg=T.SURFACE)
+    body.grid(row=2, column=0, sticky='nsew')
+    body.columnconfigure(0, weight=1)
+    body.rowconfigure(5, weight=1)  # 日志区（row 5）占据剩余空间
+    bpad = {'padx': T.PAD_X}
+
+    def section_label(parent, text, row):
+        return tk.Label(parent, text=text, font=(F, T.FS['section'], 'bold'),
+                        bg=T.SURFACE, fg=T.TEXT_DIM).grid(
+                            row=row, column=0, sticky='w', padx=T.PAD_X, pady=(T.SP['md'], T.SP['sm']))
+
+    # 分区标题：环境检测
+    section_label(body, '环境检测', 0)
+
+    # 状态行组件（无卡片底板：圆点 + 文字，靠留白分组）
+    def status_row(parent, row):
+        f = tk.Frame(parent, bg=T.SURFACE)
+        f.grid(row=row, column=0, sticky='ew', padx=T.PAD_X, pady=(0, T.SP['sm']))
+        f.columnconfigure(1, weight=1)
+        dot = tk.Label(f, text='●', font=(F, 12), bg=T.SURFACE, fg=T.TEXT_DIM,
+                       width=2, anchor='center')
+        dot.grid(row=0, column=0, sticky='w')
+        lbl = tk.Label(f, text='检测中…', font=(F, T.FS['status']), bg=T.SURFACE,
+                       fg=T.TEXT_2, justify='left', anchor='w', wraplength=620)
+        lbl.grid(row=0, column=1, sticky='ew')
         return dot, lbl
 
-    dot_p, lbl_p = card(body)
-    dot_d, lbl_d = card(body)
+    dot_p, lbl_p = status_row(body, 1)
+    dot_d, lbl_d = status_row(body, 2)
 
-    def set_cards(p, dirs, target):
-        if p:
-            lbl_p.configure(text='英文原版：%s' % p, fg=TEXT)
-            dot_p.configure(fg=OK)
-        else:
-            cands = original_candidates()
-            tip = '英文原版：未找到（需新版本 2027.0.648 Win）'
-            if cands:
-                tip += ' · 检测到但版本不符：' + '、'.join(c.name for c in cands[:3])
-            lbl_p.configure(text=tip, fg=BAD)
-            dot_p.configure(fg=BAD)
-        if dirs:
-            extra = '（发现 %d 处，可切换）' % len(dirs) if len(dirs) > 1 else ''
-            lbl_d.configure(text='安装目录：%s %s' % (target, extra), fg=TEXT)
-            dot_d.configure(fg=OK)
-        else:
-            lbl_d.configure(text='安装目录：未找到：%s（请“更换安装目录”）' % target, fg=BAD)
-            dot_d.configure(fg=BAD)
-
-    def refresh_info(emit=None):
-        p = manual['p'] or find_original()
-        dirs = _dirs_with_rizomuv()
-        target = install_dir()
-        if emit:
-            emit(('__INFO__', p, dirs, target))
-        else:
-            set_cards(p, dirs, target)
-
-    # ---- 工具按钮行 ----
-    tools = tk.Frame(body, bg='#FFFFFF')
-    tools.pack(fill='x', pady=(2, 10))
+    # 工具按钮行：轻量幽灵按钮（默认透明底 + 细描边，hover 淡底）
+    tools = tk.Frame(body, bg=T.SURFACE)
+    tools.grid(row=3, column=0, sticky='w', padx=T.PAD_X, pady=(T.SP['xs'], T.SP['sm']))
 
     def ghost(parent, text, cmd):
-        return tk.Button(parent, text=text, font=(FONT, 10), command=cmd,
-                         bg='#FFFFFF', fg=PRIMARY, bd=1,
-                         highlightbackground=BORDER, highlightthickness=1,
-                         relief='flat', padx=10, pady=4, cursor='hand2')
+        b = tk.Button(parent, text=text, font=(F, T.FS['body']), command=cmd,
+                      bg=T.BTN_BG, fg=T.ACCENT, bd=1,
+                      highlightbackground=T.BORDER, highlightthickness=1,
+                      relief='flat', padx=T.TOOL_BTN_PADX, pady=T.TOOL_BTN_PADY,
+                      cursor='hand2', activebackground=T.BTN_BG_HOVER,
+                      activeforeground=T.ACCENT_HOVER)
+        b.bind('<Enter>', lambda e, w=b: w.configure(bg=T.BTN_BG_HOVER))
+        b.bind('<Leave>', lambda e, w=b: w.configure(bg=T.BTN_BG))
+        return b
 
     def pick():
         f = filedialog.askopenfilename(title='选择英文原版 rizomuv.exe',
@@ -520,36 +532,105 @@ def gui():
             return
         dp = Path(d)
         if not (dp / EXE_NAME).exists():
-            messagebox.showerror('不是安装目录', '这个文件夹里没有 rizomuv.exe。\n请选择包含 rizomuv.exe 的目录。')
+            messagebox.showerror('不是安装目录',
+                                 '这个文件夹里没有 rizomuv.exe。\n请选择包含 rizomuv.exe 的目录。')
             return
         set_install_dir(dp)
         refresh_info()
 
+    # 让 body 的行号留给日志：工具行放在第 3 行，日志放第 4 行
     btn_pick = ghost(tools, '选择原版文件', pick)
-    btn_pick.pack(side='left', padx=(0, 8))
+    btn_pick.pack(side='left', padx=(0, T.SP['sm']))
     btn_dir = ghost(tools, '更换安装目录', pick_dir)
     btn_dir.pack(side='left')
 
-    # ---- 日志区 ----
-    tk.Label(body, text='操作日志', font=(FONT, 10, 'bold'), bg='#FFFFFF',
-             fg=MUTED).pack(anchor='w', pady=(0, 4))
-    logwrap = tk.Frame(body, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
-    logwrap.pack(fill='both', expand=True)
-    logbox = tk.Text(logwrap, height=11, font=('Consolas', 9), wrap='none',
-                     bg=CARD, fg=TEXT, relief='flat', bd=0, padx=8, pady=6)
-    logbox.pack(side='left', fill='both', expand=True)
+    def set_cards(p, dirs, target, busy=False):
+        if busy:
+            dot_p.configure(fg=T.TEXT_DIM)
+            lbl_p.configure(text='正在工作，请稍候…', fg=T.TEXT_2)
+            dot_d.configure(fg=T.TEXT_DIM)
+            lbl_d.configure(text='安装目录：%s' % target, fg=T.TEXT_2)
+            return
+        if p:
+            lbl_p.configure(text='英文原版：%s' % p, fg=T.TEXT)
+            dot_p.configure(fg=T.OK)
+        else:
+            cands = original_candidates()
+            tip = '英文原版：未找到（需新版本 2027.0.648 Win）'
+            if cands:
+                tip += ' · 检测到但版本不符：' + '、'.join(c.name for c in cands[:3])
+            lbl_p.configure(text=tip, fg=T.ERROR)
+            dot_p.configure(fg=T.ERROR)
+        if dirs:
+            extra = '（发现 %d 处，可切换）' % len(dirs) if len(dirs) > 1 else ''
+            lbl_d.configure(text='安装目录：%s %s' % (target, extra), fg=T.TEXT)
+            dot_d.configure(fg=T.OK)
+        else:
+            lbl_d.configure(text='安装目录：未找到：%s（请“更换安装目录”）' % target, fg=T.ERROR)
+            dot_d.configure(fg=T.ERROR)
+
+    def refresh_info(emit=None):
+        p = manual['p'] or find_original()
+        dirs = _dirs_with_rizomuv()
+        target = install_dir()
+        if emit:
+            emit(('__INFO__', p, dirs, target))
+        else:
+            set_cards(p, dirs, target)
+
+    # ---- 日志区（抬升面 + 极淡描边，随窗口伸缩）----
+    tk.Label(body, text='操作日志', font=(F, T.FS['section'], 'bold'),
+             bg=T.SURFACE, fg=T.TEXT_DIM).grid(
+                 row=4, column=0, sticky='w', padx=T.PAD_X, pady=(T.SP['md'], T.SP['sm']))
+    logwrap = tk.Frame(body, bg=T.SURFACE_ALT, highlightbackground=T.BORDER,
+                       highlightthickness=1)
+    logwrap.grid(row=5, column=0, sticky='nsew', padx=T.PAD_X, pady=(0, T.SP['md']))
+    logwrap.columnconfigure(0, weight=1)
+    logwrap.rowconfigure(0, weight=1)
+    logbox = tk.Text(logwrap, height=1, font=(MONO, T.FS['log']), wrap='none',
+                     bg=T.SURFACE_ALT, fg=T.TEXT_2, relief='flat', bd=0,
+                     padx=12, pady=10, insertbackground=T.ACCENT)
+    logbox.grid(row=0, column=0, sticky='nsew')
     scroll = tk.Scrollbar(logwrap, command=logbox.yview)
-    scroll.pack(side='right', fill='y')
+    scroll.grid(row=0, column=1, sticky='ns')
     logbox.configure(yscrollcommand=scroll.set)
 
-    # ---- 主操作按钮 ----
-    actions = tk.Frame(body, bg='#FFFFFF')
-    actions.pack(fill='x', pady=(12, 0))
+    # ---- 底部操作区（主按钮 + 状态提示）----
+    actions = tk.Frame(body, bg=T.SURFACE)
+    actions.grid(row=6, column=0, sticky='ew', padx=T.PAD_X, pady=(T.SP['sm'], T.PAD_X))
+    actions.columnconfigure(2, weight=1)
+
+    hint = tk.Label(actions, text='', font=(F, T.FS['caption'] if 'caption' in T.FS else T.FS['subtitle']),
+                    bg=T.SURFACE, fg=T.TEXT_DIM, anchor='w')
+
+    def set_hint(text, color=None):
+        hint.configure(text=text, fg=color or T.TEXT_DIM)
+
+    def primary_button(parent, text, cmd):
+        b = tk.Button(parent, text=text, font=(F, T.FS['button'], 'bold'), command=cmd,
+                      bg=T.ACCENT, fg='#FFFFFF', bd=0, width=14,
+                      activebackground=T.ACCENT_HOVER, activeforeground='#FFFFFF',
+                      cursor='hand2', relief='flat', pady=10,
+                      highlightbackground=T.ACCENT, highlightthickness=1)
+        b.bind('<Enter>', lambda e, w=b: w.configure(bg=T.ACCENT_HOVER) if str(w['state']) == 'normal' else None)
+        b.bind('<Leave>', lambda e, w=b: w.configure(bg=T.ACCENT) if str(w['state']) == 'normal' else None)
+        return b
+
+    def ghost_button(parent, text, cmd):
+        b = tk.Button(parent, text=text, font=(F, T.FS['button']), command=cmd,
+                      bg=T.BTN_BG, fg=T.TEXT_2, bd=1, width=14,
+                      highlightbackground=T.BORDER, highlightthickness=1,
+                      relief='flat', cursor='hand2', pady=10,
+                      activebackground=T.BTN_BG_HOVER, activeforeground=T.TEXT)
+        b.bind('<Enter>', lambda e, w=b: w.configure(bg=T.BTN_BG_HOVER) if str(w['state']) == 'normal' else None)
+        b.bind('<Leave>', lambda e, w=b: w.configure(bg=T.BTN_BG) if str(w['state']) == 'normal' else None)
+        return b
 
     def finish_work():
         running['v'] = False
         for b in (btn_han, btn_res, btn_pick, btn_dir):
             b.configure(state='normal')
+        refresh_info()
 
     def pump():
         try:
@@ -564,6 +645,9 @@ def gui():
                 elif isinstance(item, tuple) and item and item[0] == '__INFO__':
                     _, p, dirs, target = item
                     set_cards(p, dirs, target)
+                elif isinstance(item, tuple) and item and item[0] == '__HINT__':
+                    _, text, color = item
+                    set_hint(text, color)
                 elif item == '__DONE__':
                     finish_work()
                 else:
@@ -573,11 +657,13 @@ def gui():
             pass
         root.after(100, pump)
 
-    def runner(task):
+    def runner(task, label):
         running['v'] = True
         for b in (btn_han, btn_res, btn_pick, btn_dir):
             b.configure(state='disabled')
         logbox.delete('1.0', 'end')
+        set_hint(label + ' 进行中…', T.INFO if hasattr(T, 'INFO') else T.TEXT_2)
+        set_cards(None, [], install_dir(), busy=True)
 
         def emit(msg):
             q.put(msg)
@@ -592,51 +678,60 @@ def gui():
                 task(emit, ask)
             except Exception as e:
                 emit('')
-                emit('❌ 失败：%s' % e)
+                emit('失败：%s' % e)
             finally:
                 q.put('__DONE__')
 
         threading.Thread(target=work, daemon=True).start()
 
-    def task_han(emit, ask):
+    def task_han(emit, _ask):
         emit('正在检测英文原版（读取校验，约几秒）…')
         p = manual['p'] or find_original()
         ok, msg = check_version(p)
         emit(msg)
         if not ok:
             emit('已停止。请检查版本，或点“选择原版文件”。')
+            q.put(('__HINT__', '版本校验未通过', T.ERROR))
             return
         target = install_dir()
         if not (target / EXE_NAME).exists():
             emit('找不到安装目录：%s' % target)
             emit('请点“更换安装目录”选择正确文件夹。')
+            q.put(('__HINT__', '未找到安装目录', T.ERROR))
             return
-        if not ask('即将把简体中文版安装到：\n%s\n\n确认 RizomUV 已关闭？' % target):
+        if not _ask('即将把简体中文版安装到：\n%s\n\n请确认 RizomUV 已完全关闭。' % target):
             emit('已取消。')
             return
+        emit('开始安装（自动备份原版）…')
         do_install(p, emit=emit)
+        q.put(('__HINT__', '完成 · 现在可以启动 RizomUV', T.OK))
 
-    def task_res(emit, ask):
+    def task_res(emit, _ask):
         target = install_dir()
         if not (target / EXE_NAME).exists():
             emit('找不到安装目录：%s' % target)
             emit('请点“更换安装目录”。')
+            q.put(('__HINT__', '未找到安装目录', T.ERROR))
             return
-        if not ask('即将把 RizomUV 恢复为英文原版：\n%s\n\n继续？' % target):
+        if not _ask('即将把 RizomUV 恢复为英文原版：\n%s\n\n继续？' % target):
             emit('已取消。')
             return
         do_restore(emit=emit)
+        q.put(('__HINT__', '完成 · 已恢复英文原版', T.OK))
 
-    btn_han = tk.Button(actions, text='一键汉化', font=(FONT, 11, 'bold'),
-                        bg=PRIMARY, fg='white', bd=0, width=15, pady=7,
-                        activebackground=PRIMARY_DK, activeforeground='white',
-                        cursor='hand2', command=lambda: runner(task_han))
-    btn_han.pack(side='left', padx=(0, 12))
-    btn_res = tk.Button(actions, text='一键还原', font=(FONT, 11),
-                        bg='#FFFFFF', fg=TEXT, bd=1, width=15, pady=7,
-                        highlightbackground=BORDER, highlightthickness=1,
-                        relief='flat', cursor='hand2', command=lambda: runner(task_res))
-    btn_res.pack(side='left')
+    btn_han = primary_button(actions, '一键汉化', lambda: runner(task_han, '汉化'))
+    btn_han.grid(row=0, column=0, sticky='w')
+    btn_res = ghost_button(actions, '一键还原', lambda: runner(task_res, '还原'))
+    btn_res.grid(row=0, column=1, sticky='w', padx=(T.SP['sm'], 0))
+    hint.grid(row=0, column=2, sticky='e')
+    actions.columnconfigure(2, weight=1)
+
+    # ---- 快捷键（可访问性）----
+    root.bind('<Control-h>', lambda e: runner(task_han, '汉化') if not running['v'] else None)
+    root.bind('<Control-r>', lambda e: runner(task_res, '还原') if not running['v'] else None)
+    # Tab 顺序：选择原版 -> 更换目录 -> 一键汉化 -> 一键还原
+    btn_pick.lift()
+    set_hint('提示：Ctrl+H 汉化 · Ctrl+R 还原')
 
     threading.Thread(target=lambda: refresh_info(q.put), daemon=True).start()
     root.after(100, pump)

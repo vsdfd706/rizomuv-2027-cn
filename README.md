@@ -8,7 +8,7 @@
 
 | 你的 RizomUV 版本 | 用哪套工具 | 一键入口（双击即用，无需 Python） | 英文原版 MD5 |
 |---|---|---|---|
-| **新版本 2027.0.648 Win** | [`v648/`](v648/README.md) | `v648\dist\RizomUV汉化工具_648.exe` | `abbc69339a373f08cbc3507111d97fbf` |
+| **新版本 2027.0.648 Win** | [`v648/`](v648/README.md) | `v648\dist\RizomUV汉化工具_648.exe`（图形窗口） | `abbc69339a373f08cbc3507111d97fbf` |
 | **老版本 2027.0.598 Win** | [`v598/`](v598/README.md) | `v598\dist\RizomUV汉化工具.exe` | `2ddf8d6da2000ae3eac66d7eea59a311` |
 
 > **怎么知道自己是哪个版本**：打开 RizomUV，看关于/标题，或在安装目录对 `rizomuv.exe` 右键属性看版本信息。装错工具会在校验时明确提示“版本不匹配”，不会改动文件。
@@ -33,7 +33,7 @@ rizomuv-2027-cn/
 │   ├── src/  dicts/  *.txt
 │   └── README.md
 └── v648/                           # 新版本 2027.0.648 Win 工具（自包含）
-    ├── dist/RizomUV汉化工具_648.exe #   └ 一键入口（控制台，无需 Python）
+    ├── dist/RizomUV汉化工具_648.exe #   └ 一键入口（图形窗口，无需 Python）
     ├── 一键汉化.bat / 一键还原.bat
     ├── patch_tool.py / build.py
     ├── verified_dict.json  dicts/
