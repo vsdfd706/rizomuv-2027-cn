@@ -2,11 +2,20 @@
 """新版本 RizomUV 2027.0.648 Win —— 一键汉化构建引擎。
 
 从使用者自己持有的英文原版 rizomuv.exe 出发，在内存中依次应用
-已验证安全的界面补丁（主迁移 621 词 + 工具栏 7 + 面板 8 + 菜单 6），
-产出纯界面汉化版。只改 UI 字符串区，不动任何程序逻辑。
+已验证安全的界面补丁（主迁移 621 词 + 工具栏 7 + 面板 8 + 菜单 6
++ 网格面板 4 + 视口显示标签 4 + 控件悬停说明 841 条），产出纯界面汉化版。
+长篇中文说明在标点后插入 ASCII 空格作为断行点：说明框靠空格换行，中文整串
+无空格会单行溢出遮挡文字；163 条长段落已加断点，678 条短句保持原样。
+只改 UI 字符串区，不动任何程序逻辑。
 
 本文件是 history/ 下 4 个分批脚本的合一重写版，MD5 逐级校验完全一致：
-    abbc6933(英文) -> cf53e149 -> 8018ad29 -> 651a25b1 -> ef85533b(最终)
+    abbc6933(英文) -> cf53e149 -> 8018ad29 -> 651a25b1 -> ef85533b
+    -> e03fd1a2(网格面板 4) -> f0bcc86d(视口显示标签 4)
+    -> dbcc0c42(全量悬停说明 841 条，最终）
+
+注意：网格面板的分组标题 "Grid" 属于内部注册名（与 Factory/Selection/
+Pixel/Tile/Group/BBox 同组，且已在黑名单中），刻意保留英文，避免触发
+`variable is not found` 一类的内部寻址错误。
 
 用法：
     python build.py <英文原版.exe> <输出.exe>
@@ -20,6 +29,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 DICT = HERE / 'verified_dict.json'
 BLOCK = HERE / 'dicts' / 'blocklist_ui_only.txt'
+TIPS = HERE / 'dicts' / 'tooltips_zh.json'
 
 # 逐级期望 MD5（英文原版 -> 4 批之后）
 MD5_EN = 'abbc69339a373f08cbc3507111d97fbf'
@@ -27,7 +37,10 @@ MD5_STAGE = [
     'cf53e1496873dffba10983d180a0cdcf',  # 主迁移 621 词
     '8018ad29b03772d8b51f8c676220e334',  # 工具栏 7 标题
     '651a25b166ab27091f6dcc0695756529',  # 面板 8 标签
-    'ef85533b797c7fc841e9c26bd676efae',  # 菜单 6 标签（最终）
+    'ef85533b797c7fc841e9c26bd676efae',  # 菜单 6 标签
+    'e03fd1a234b6788e54d325d7f2063485',  # 网格面板 4 标签
+    'f0bcc86da50a9b3e1e54bd135722cc48',  # 视口显示标签 4
+    'dbcc0c422c914a261b83201003f74b39',  # 全量悬停说明 841 条（最终）
 ]
 UI_LO, UI_HI = 0x6d00000, 0x6e20000
 DANGER = {'Protect', 'Strategy', 'Tags', 'Threshold', 'Mutations', 'Keep', 'Follow'}
@@ -47,6 +60,26 @@ PAIRS_PANEL = [
 PAIRS_MENU = [
     ('Groups', '组'), ('Trimsheet', '修剪'), ('Optimize', '优化'),
     ('Straighten', '拉直'), ('Align', '对齐'), ('Flip', '翻转'),
+]
+# 视口显示设置 → Grid 面板：4 个纯显示标签。
+# 每个槽后面都跟着独立的 Prefs./Vars. 配置键与 ZOMID_*_UI 控件 ID，
+# 程序不靠标签文本寻址，因此只改标签是安全的。
+# "Show pixel grid" 槽仅 16 字节，装不下"显示像素网格"(19B)，
+# 沿用词表既有译法 'pixel grid' -> '像素网格'。
+PAIRS_GRID = [
+    ('Show grid', '显示网格'),
+    ('Divisions', '划分数'),
+    ('Snap subdivisions', '吸附细分'),
+    ('Show pixel grid', '像素网格'),
+]
+# 视口显示设置里的 4 个独立显示标签：全文件唯一、低指针密度、
+# 后跟 Prefs./Vars. 键或 ZOMID_*_UI 控件 ID（程序不靠标签文本寻址）。
+# 译文沿用 verified_dict.json 既有译法，保证术语统一。
+PAIRS_VIEWPORT = [
+    ('Lighting', '光照'),
+    ('Pixels', '像素'),
+    ('Subdiv.', '细分'),
+    ('Browse...', '浏览...'),
 ]
 
 
@@ -147,6 +180,58 @@ def _stage_pairs(data, pairs, emit, expect_global_unique=True):
         data[off:ge] = nb + b'\x00' * ((ge - off) - len(nb))
 
 
+def _stage_tooltips(data, emit):
+    """第 7 批：写入控件悬停说明（鼠标停在按钮/设置项上弹出的解释）。
+
+    这些槽在二进制里是标准的四元组：
+        [悬停说明句] -> [快捷键] -> [显示标签] -> [ZOMID_*_UI 控件 ID]
+    显示标签在前几批已汉化且一直正常工作，程序靠末尾的控件 ID 寻址，
+    因此只改第一项说明文字不会影响任何功能。
+
+    按「偏移」而不是按字符串查找来定位，避免误改同一英文句子的其他副本。
+    沿用与前几批相同的安全规则：UI 区内、独立 NUL 边界槽、仍为纯 ASCII、
+    零填充预算充足、指针密度 < 6。不满足的一律跳过，不报错中断。
+    词表按「文件偏移」定位，共 841 条（含补上第 7 批漏提取的 0x6dca920）。
+    显示宽度 > 80 的长段落在中文标点后插入 ASCII 空格作断行点，每段 <= 80，
+    避免固定不滚动的说明框里中文单行溢出；短句不加空格。
+    """
+    gap_end, _, ptr_density = _helpers(data)
+    tr = json.load(open(TIPS, encoding='utf-8'))
+    applied = 0
+    skipped = 0
+    size = len(data)
+    for key in sorted(tr, key=lambda k: int(k, 16)):
+        off = int(key, 16)
+        if not (UI_LO <= off < UI_HI):
+            skipped += 1
+            continue
+        if data[off - 1] != 0:
+            skipped += 1
+            continue
+        e = off
+        while e < size and data[e] != 0:
+            e += 1
+        raw = bytes(data[off:e])
+        # 允许 LF/CR/TAB：部分说明原文是多段文本（例如 0x6dca920 的
+        # "选择相似"说明含 \n 分段），这些空白属于正文排版而非二进制数据，
+        # 不能因此被当成非文本槽跳过。词表按偏移定位，只放行词表内的条目。
+        if not all(32 <= c < 127 or c in (9, 10, 13) for c in raw):
+            skipped += 1
+            continue
+        ge = gap_end(off)
+        nb = tr[key].encode('utf-8')
+        if len(nb) + 1 > ge - off:
+            skipped += 1
+            continue
+        if ptr_density(off) >= 6:
+            skipped += 1
+            continue
+        data[off:ge] = nb + b'\x00' * ((ge - off) - len(nb))
+        applied += 1
+    emit('  写入悬停说明：%d 条（按安全规则跳过 %d 条）' % (applied, skipped))
+    return applied
+
+
 def build(src: Path, dst: Path, emit=print) -> Path:
     """从英文原版构建最终汉化版，逐级校验 MD5。返回输出路径。"""
     src, dst = Path(src), Path(dst)
@@ -162,9 +247,12 @@ def build(src: Path, dst: Path, emit=print) -> Path:
         ('工具栏 7 标题', lambda d: _stage_pairs(d, PAIRS_TOOLBAR, emit, True), False),
         ('面板 8 标签', lambda d: _stage_pairs(d, PAIRS_PANEL, emit, False), False),
         ('菜单 6 标签', lambda d: _stage_pairs(d, PAIRS_MENU, emit, False), False),
+        ('网格面板 4 标签', lambda d: _stage_pairs(d, PAIRS_GRID, emit, True), False),
+        ('视口显示标签 4', lambda d: _stage_pairs(d, PAIRS_VIEWPORT, emit, True), False),
+        ('控件悬停说明', lambda d: _stage_tooltips(d, emit), False),
     ]
     for i, (name, fn, _) in enumerate(stages):
-        emit('[%d/4] %s ...' % (i + 1, name))
+        emit('[%d/%d] %s ...' % (i + 1, len(stages), name))
         fn(data)
         actual = md5(data)
         if actual != MD5_STAGE[i]:

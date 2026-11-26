@@ -32,7 +32,7 @@ _DYNAMIC_DEPS = (_json_for_packer, _re_for_packer)
 
 # ---------------------------------------------------------------- 常量
 EXPECTED_MD5 = 'abbc69339a373f08cbc3507111d97fbf'      # 新版本英文原版 RizomUV 2027.0.648 Win
-EXPECTED_OUTPUT_MD5 = 'ef85533b797c7fc841e9c26bd676efae'  # 最终汉化版自检值
+EXPECTED_OUTPUT_MD5 = 'dbcc0c422c914a261b83201003f74b39'  # 最终汉化版自检值（含网格面板 4 + 视口显示标签 4 + 全量悬停说明 841 条）
 APP_TITLE = 'RizomUV 2027.0.648 简体中文汉化工具'
 
 PF = os.environ.get('ProgramFiles') or r'C:\Program Files'
