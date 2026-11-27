@@ -14,6 +14,7 @@ AcrossSelection
 ActiveEdges
 Add select shortest path
 AddMargin
+Algorithms
 Align
 AlignBorders
 AlignBordersAngle
@@ -21,6 +22,7 @@ AlignBordersPreOrient
 Also
 AmbientLight
 AmbientLightIntensity
+Amount
 Anchoring
 Angle
 AngleDistanceMix
@@ -80,6 +82,7 @@ BoundingBoxMode
 Box
 BoxFrameEdit
 BoxMode
+Boxes
 Branch
 Branches
 Brush
@@ -272,6 +275,7 @@ Event
 Events
 EventsAfter
 EventsBefore
+Examples
 Execute
 Existing
 Expandable
@@ -673,6 +677,7 @@ OptimizeOrientation
 Orbit
 OrbitMode
 Orientation
+Outlines
 OutputCoordsUVW
 OverlapsOn
 P2T
@@ -804,6 +809,7 @@ RelativeAngle
 RemoteControlFile
 RemoteControlFileMonitoringOn
 RemoteControlFilePath
+Rename
 RenameToST
 Repeat
 Repetition
@@ -953,6 +959,7 @@ StartupError
 State
 Status
 Step
+Steps
 StopAtSelection
 StoreCoordsUVW
 StoreUndo
@@ -1052,6 +1059,7 @@ UndoHistorySize
 UndoRestoreClone
 Unfold
 UnfoldIte
+Ungroup
 UniformSpread
 Unit
 UnmappedPolyIDs

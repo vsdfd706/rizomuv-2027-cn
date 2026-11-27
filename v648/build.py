@@ -3,15 +3,18 @@
 
 从使用者自己持有的英文原版 rizomuv.exe 出发，在内存中依次应用
 已验证安全的界面补丁（主迁移 621 词 + 工具栏 7 + 面板 8 + 菜单 6
-+ 网格面板 4 + 视口显示标签 4 + 控件悬停说明 841 条），产出纯界面汉化版。
++ 网格面板 4 + 视口显示标签 4 + 控件悬停说明 841 条 + 残留 UI 显示标签 41 条），
+产出纯界面汉化版。
 长篇中文说明在标点后插入 ASCII 空格作为断行点：说明框靠空格换行，中文整串
 无空格会单行溢出遮挡文字；163 条长段落已加断点，678 条短句保持原样。
 只改 UI 字符串区，不动任何程序逻辑。
 
-本文件是 history/ 下 4 个分批脚本的合一重写版，MD5 逐级校验完全一致：
-    abbc6933(英文) -> cf53e149 -> 8018ad29 -> 651a25b1 -> ef85533b
-    -> e03fd1a2(网格面板 4) -> f0bcc86d(视口显示标签 4)
-    -> dbcc0c42(全量悬停说明 841 条，最终）
+本文件是 history/ 下 4 个分批脚本的合一重写版，MD5 逐级校验完全一致。
+v10 统一了 tile→瓦片、pack→排布 的历史术语不一致（改旧词表 8 条），
+并为 3 个极短槽补上精简译法；整条链已从英文原版逐级重算、重新验证：
+    abbc6933(英文) -> d1f2e200 -> dbfacc0b -> fa143b51 -> 5474f1a6
+    -> c81d9c3e(网格面板 4) -> f38b0a5d(视口显示标签 4)
+    -> 93acbc66(悬停说明 825 条) -> 8101756a(残留 UI 显示标签 41 条，最终)
 
 注意：网格面板的分组标题 "Grid" 属于内部注册名（与 Factory/Selection/
 Pixel/Tile/Group/BBox 同组，且已在黑名单中），刻意保留英文，避免触发
@@ -23,6 +26,7 @@ Pixel/Tile/Group/BBox 同组，且已在黑名单中），刻意保留英文，�
 """
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -30,19 +34,24 @@ HERE = Path(__file__).resolve().parent
 DICT = HERE / 'verified_dict.json'
 BLOCK = HERE / 'dicts' / 'blocklist_ui_only.txt'
 TIPS = HERE / 'dicts' / 'tooltips_zh.json'
+LABELS = HERE / 'dicts' / 'labels_zh.json'
 
 # 逐级期望 MD5（英文原版 -> 4 批之后）
 MD5_EN = 'abbc69339a373f08cbc3507111d97fbf'
 MD5_STAGE = [
-    'cf53e1496873dffba10983d180a0cdcf',  # 主迁移 621 词
-    '8018ad29b03772d8b51f8c676220e334',  # 工具栏 7 标题
-    '651a25b166ab27091f6dcc0695756529',  # 面板 8 标签
-    'ef85533b797c7fc841e9c26bd676efae',  # 菜单 6 标签
-    'e03fd1a234b6788e54d325d7f2063485',  # 网格面板 4 标签
-    'f0bcc86da50a9b3e1e54bd135722cc48',  # 视口显示标签 4
-    'dbcc0c422c914a261b83201003f74b39',  # 全量悬停说明 841 条（最终）
+    'd1f2e200a771673beca1458d524d1c51',  # 主迁移 621 词（术语统一后重算）
+    'dbfacc0bc9eba2da09c35eebc1a769aa',  # 工具栏 7 标题
+    'fa143b517a1df3db916c1160824d6fed',  # 面板 8 标签
+    '5474f1a65c3318ae2a31d99b903f7b28',  # 菜单 6 标签
+    'c81d9c3ef8a92228ad62734755b12ff2',  # 网格面板 4 标签
+    'f38b0a5ddce5b0fe91d6d9404663fab5',  # 视口显示标签 4
+    '93acbc66dc32986087e57a59d6a7fa29',  # 悬停说明 825 条写入 / 16 条跳过
+    '8101756ad004fc63b5b5ba206d9d7d87',  # 残留 UI 显示标签 41 条（17 条风险词回退）
 ]
 UI_LO, UI_HI = 0x6d00000, 0x6e20000
+# 纯标识符（只含字母/数字/下划线）很可能同时是 RizomUV 的内部变量名，
+# 翻译后会触发 `The variable is not found: '中文'`，一律不翻。
+IDENT_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 DANGER = {'Protect', 'Strategy', 'Tags', 'Threshold', 'Mutations', 'Keep', 'Follow'}
 
 # 后三批的独立补丁对（每对都是已验证安全的界面显示标签）
@@ -232,6 +241,71 @@ def _stage_tooltips(data, emit):
     return applied
 
 
+def _stage_labels(data, emit):
+    """第 8 批：补译残留 UI 显示标签（面板/对话框里的短标签）。
+
+    与第 7 批悬停说明同源：按「文件偏移」定位，不按字符串查找，避免误改
+    同一英文词的其他副本。词表 labels_zh.json 来自剩余英文复查清单里
+    分类为「可安全补」的 41 条：每条都是纯界面显示标签，紧跟 ZOMID_*_UI
+    控件 ID。
+
+    **重要教训**：「后跟 ZOMID 控件 ID」并不保证程序不靠文本寻址。v10 首版
+    把 `Selected` 译成「已选择」后，RizomUV 直接报
+    `The variable is not found: '已选择'` —— 它仍会用该文本查内部变量。
+    因此增加一条硬规则：**原文字形若为纯标识符（只含 [A-Za-z0-9_]，如
+    Selected / Edge / Labels / Normals），一律不翻**，这类词很可能兼作内部
+    变量名。从 58 条中回退 17 条（15 条纯单词 + 2 条命中黑名单的
+    Island Properties / Islands and groups），保留 41 条含空格或连字符的短语
+    （含空格的字符串不可能是 Lua 标识符，可安全保留）。本批与第 1 批一样
+    会加载 blocklist，并对纯标识符做运行时拒绝，形成双重防护。
+
+    安全规则与前 7 批一致：UI 区内、独立 NUL 边界槽、原文为纯 ASCII、
+    零填充预算充足、指针密度 < 6。不满足则跳过并计数，不静默写入。
+    """
+    gap_end, _, ptr_density = _helpers(data)
+    tr = json.load(open(LABELS, encoding='utf-8'))
+    block = set()
+    for line in open(BLOCK, encoding='utf-8'):
+        line = line.strip()
+        if line and not line.startswith('#'):
+            block.add(line)
+    applied = 0
+    skipped = 0
+    size = len(data)
+    for key in sorted(tr, key=lambda k: int(k, 16)):
+        off = int(key, 16)
+        if not (UI_LO <= off < UI_HI):
+            skipped += 1
+            continue
+        if data[off - 1] != 0:
+            skipped += 1
+            continue
+        e = off
+        while e < size and data[e] != 0:
+            e += 1
+        if not all(32 <= c < 127 for c in data[off:e]):
+            skipped += 1
+            continue
+        en = bytes(data[off:e]).decode('ascii')
+        # 兜底防护：黑名单词、或纯标识符风格（可能兼作内部变量名）一律不写，
+        # 即使这些词误留在词表里。
+        if en in block or IDENT_RE.match(en):
+            skipped += 1
+            continue
+        ge = gap_end(off)
+        nb = tr[key].encode('utf-8')
+        if len(nb) + 1 > ge - off:
+            skipped += 1
+            continue
+        if ptr_density(off) >= 6:
+            skipped += 1
+            continue
+        data[off:ge] = nb + b'\x00' * ((ge - off) - len(nb))
+        applied += 1
+    emit('  补译 UI 标签：%d 条（按安全规则跳过 %d 条）' % (applied, skipped))
+    return applied
+
+
 def build(src: Path, dst: Path, emit=print) -> Path:
     """从英文原版构建最终汉化版，逐级校验 MD5。返回输出路径。"""
     src, dst = Path(src), Path(dst)
@@ -250,6 +324,7 @@ def build(src: Path, dst: Path, emit=print) -> Path:
         ('网格面板 4 标签', lambda d: _stage_pairs(d, PAIRS_GRID, emit, True), False),
         ('视口显示标签 4', lambda d: _stage_pairs(d, PAIRS_VIEWPORT, emit, True), False),
         ('控件悬停说明', lambda d: _stage_tooltips(d, emit), False),
+        ('残留 UI 显示标签', lambda d: _stage_labels(d, emit), False),
     ]
     for i, (name, fn, _) in enumerate(stages):
         emit('[%d/%d] %s ...' % (i + 1, len(stages), name))
